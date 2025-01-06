@@ -33,7 +33,7 @@ class Fetcher:
 
     @staticmethod
     def _printurl(path, url):
-        print("url", path)
+        print("url", 0, path)
         print(url)
 
     @staticmethod
