@@ -7,11 +7,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1736260184,
-        "narHash": "sha256-snZvf9fm0PIWLs3I1y0LE33lKdyOJUjXaZy+x6JZtqw=",
+        "lastModified": 1736577829,
+        "narHash": "sha256-N36SDkgSA+vOBgyQlNUrcFJl8lroly4TEWXrUirGt2c=",
         "owner": "igsha",
         "repo": "anyfs",
-        "rev": "63f514b406b999da39fbd775b8379efa04da007b",
+        "rev": "8353481eeb8b3b377d90075acdf9a7e49ac9c601",
         "type": "github"
       },
       "original": {

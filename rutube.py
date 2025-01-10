@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import m3u8
 import os
 import re
 import sys
@@ -18,6 +19,7 @@ class Fetcher:
         self._SHORTSURL = f"{self.BASEURL}/api/video/person/{userid}/?origin__type=rshorts&page={{}}"
         self._PROFILE = f"{self.BASEURL}/api/profile/user/{userid}/"
         self._PLAYLISTVIDEOURL = f"{self.BASEURL}/api/playlist/custom/{{}}/videos/?page={{}}"
+        self._PLAYOPTIONS = f"{self.BASEURL}/api/play/options/{{}}/"
         self.idmap = {}
 
     @staticmethod
@@ -44,18 +46,26 @@ class Fetcher:
         print(realpath)
 
     def fetch(self, path):
-        if path == "/":
-            self._printroot()
-        elif re.match(r"/[^/]+(/next)*$", path):
-            pagenum = path.count("/next") + 1
-            if path.startswith("/videos"):
-                self._printcommon(self._VIDEOURL.format(pagenum), path)
-            elif path.startswith("/shorts"):
-                self._printcommon(self._SHORTSURL.format(pagenum), path)
-            elif path.startswith("/playlists"):
-                self._printcommon(self._PLAYLISTURL.format(pagenum), path)
-        else:
-            print("notfound", path)
+        try:
+            if path == "/":
+                self._printroot()
+            elif m := re.match(r"/hashes/(\w{32})/video", path):
+                self._printoptions(path, m[1])
+            elif re.match(r"/[^/]+(/next)*$", path):
+                pagenum = path.count("/next") + 1
+                if path.startswith("/videos"):
+                    self._printcommon(self._VIDEOURL.format(pagenum), path)
+                elif path.startswith("/shorts"):
+                    self._printcommon(self._SHORTSURL.format(pagenum), path)
+                elif path.startswith("/playlists"):
+                    self._printcommon(self._PLAYLISTURL.format(pagenum), path)
+            else:
+                print("notfound", path)
+        except HTTPError as ex:
+            if ex.code == 404:
+                print("notfound", path)
+            else:
+                raise
 
     def _printroot(self):
         with urlopen(self._PROFILE) as f:
@@ -73,19 +83,22 @@ class Fetcher:
         self._printurl(os.path.join(path, name), thumbnail_url)
 
     def _printvideo(self, path, data):
-        self._printbytes(path + "/video.m3u8", data["video_url"])
+        self._printbytes(path + "/video.url", data["video_url"])
         self._printbytes(path + "/about.txt", data["description"])
         self._printthumbnail(path, data)
+        self._printentity(path + "/video")
+
+    def _printoptions(self, path, videoid):
+        with urlopen(self._PLAYOPTIONS.format(videoid)) as f:
+            data = json.load(f)
+
+        mplay = m3u8.load(data["video_balancer"]["m3u8"])
+        for name, url in {str(p.stream_info): p.absolute_uri for p in mplay.playlists}.items():
+            self._printbytes(f"{path}/{name}.m3u8", url)
 
     def _printcommon(self, url, path):
-        try:
-            with urlopen(url) as f:
-                data = json.load(f)
-        except HTTPError as ex:
-            if ex.code == 404:
-                print("notfound", path)
-            else:
-                raise
+        with urlopen(url) as f:
+            data = json.load(f)
 
         for val in data["results"]:
             title = val["title"].replace("/", ",")
