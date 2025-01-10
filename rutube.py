@@ -26,10 +26,8 @@ class Fetcher:
         sys.stdout.write(buf)
 
     @staticmethod
-    def _printentities(path, lst):
-        print("entities", len(lst), path)
-        for x in lst:
-            print(x)
+    def _printentity(path):
+        print("entity", path)
 
     @staticmethod
     def _printurl(path, url):
@@ -42,47 +40,45 @@ class Fetcher:
 
     def fetch(self, path):
         if path == "/":
-            self._fetchroot()
+            self._printroot()
         elif re.match(r"/[^/]+(/next)*$", path):
             pagenum = path.count("/next") + 1
             if path.startswith("/videos"):
-                self._commonfetch(self._VIDEOURL.format(pagenum), path)
+                self._printcommon(self._VIDEOURL.format(pagenum), path)
             elif path.startswith("/shorts"):
-                self._commonfetch(self._SHORTSURL.format(pagenum), path)
+                self._printcommon(self._SHORTSURL.format(pagenum), path)
             elif path.startswith("/playlists"):
-                self._commonfetch(self._PLAYLISTURL.format(pagenum), path, isplaylist=True)
+                self._printcommon(self._PLAYLISTURL.format(pagenum), path, isplaylist=True)
         elif (m := re.match(r"(/playlists(?:/next)*/[^/]+)(/next)*$", path)) and m[1] in self.idmap:
             info = self.idmap.pop(m[1])
             playlistid = info["id"]
             pagenum = path.count("/next", *m.regs[2]) + 1 if len(m.groups()) > 1 else 1
             initlist = info["initlist"] if pagenum == 1 else []
-            self._commonfetch(self._PLAYLISTVIDEOURL.format(playlistid, pagenum), path, init=initlist)
+            self._printcommon(self._PLAYLISTVIDEOURL.format(playlistid, pagenum), path, init=initlist)
         else:
             print("notfound", path)
 
-    def _fetchroot(self):
+    def _printroot(self):
         with urlopen(self._PROFILE) as f:
             data = json.load(f)
 
-        name = data['name'] + ".txt"
-        self._printentities("/", ["videos", "playlists", "shorts", name, "info.json"])
-        self._printbytes("/" + name, data["description"])
+        for x in ["", "videos", "playlists", "shorts"]:
+            self._printentity("/" + x)
+
+        self._printbytes(f"/{data['name']}.txt", data["description"])
         self._printjson("/info.json", data)
 
-    def _fetchthumbnail(self, path, data):
+    def _printthumbnail(self, path, data):
         thumbnail_url = data["thumbnail_url"]
         name = "thumbnail." + thumbnail_url.split(".")[-1]
         self._printurl(os.path.join(path, name), thumbnail_url)
-        return name
 
-    def _fetchvideo(self, path, data):
+    def _printvideo(self, path, data):
         self._printbytes(path + "/video.m3u8", data["video_url"])
         self._printbytes(path + "/about.txt", data["description"])
+        self._printthumbnail(path, data)
 
-        thumbnail = self._fetchthumbnail(path, data)
-        self._printentities(path, ["video.m3u8", "about.txt", thumbnail])
-
-    def _commonfetch(self, url, path, isplaylist=False, init=[]):
+    def _printcommon(self, url, path, isplaylist=False, init=[]):
         try:
             with urlopen(url) as f:
                 data = json.load(f)
@@ -92,25 +88,22 @@ class Fetcher:
             else:
                 raise
 
-        lst = init.copy()
         for val in data["results"]:
             title = val["title"].replace("/", ",")
-            lst.append(title)
             ppath = os.path.join(path, title)
+            self._printentity(ppath)
             if isplaylist:
                 playlistid = val["id"]
-                thumbnail = self._fetchthumbnail(ppath, val)
-                self._printbytes(ppath + "/playlist.m3u8", "{self.BASEURL}/plst/{playlistid}/")
-                self.idmap[ppath] = dict(id=playlistid, initlist=[thumbnail, "playlist.m3u8"])
+                self._printthumbnail(ppath, val)
+                self._printbytes(ppath + "/playlist.m3u8", f"{self.BASEURL}/plst/{playlistid}/")
+                self.idmap[ppath] = dict(id=playlistid, initlist=["playlist.m3u8"])
             else:
-                self._fetchvideo(ppath, val)
+                self._printvideo(ppath, val)
 
         if data["has_next"]:
-            lst.append("next")
+            self._printentity(path + "/next")
 
-        lst.append("info.json")
         self._printjson(path + "/info.json", data)
-        self._printentities(path, lst)
 
     @staticmethod
     def extractIdFromUrl(url):
@@ -142,26 +135,30 @@ if __name__ == "__main__":
     epilog = ", ".join(f"{k} - {v}" for k, v in lst.items())
     parser = argparse.ArgumentParser(description="Rutube api handler", epilog="Some channels: " + epilog)
     parser.add_argument("userid", help="Id of a rutube user", type=int, nargs='?')
-    parser.add_argument("-s", "--slug", help="Return user id by its slug")
-    parser.add_argument("-u", "--url", help="Return user id by its url")
+    parser.add_argument("-s", "--slug", help="Connect by user slug")
+    parser.add_argument("-u", "--url", help="Connect by user url")
+    parser.add_argument("-c", "--convert", help="Do not connect just find out user id", action="store_true")
     args = parser.parse_args()
 
-    if args.slug is not None or args.url is not None:
-        if args.slug is not None:
-            userid = Fetcher.extractIdFromSlug(args.slug)
-            message = f"Slug '{args.slug}'"
-        else:
-            userid = Fetcher.extractIdFromUrl(args.url)
-            message = args.url
+    if args.userid is not None:
+        userid = args.userid
+        message = f"User {userid}"
+    if args.slug is not None:
+        userid = Fetcher.extractIdFromSlug(args.slug)
+        message = f"Slug '{args.slug}'"
+    elif args.url is not None:
+        userid = Fetcher.extractIdFromUrl(args.url)
+        message = args.url
 
+    if args.convert:
         if userid is None:
             print(message, "does not have id")
             sys.exit(1)
-
-        print(message, "has id", userid)
-        sys.exit(0)
+        else:
+            print(message, "has id", userid)
+            sys.exit(0)
     else:
-        fetcher = Fetcher(args.userid)
+        fetcher = Fetcher(userid)
         try:
             for path in sys.stdin:
                 path = path.strip()
