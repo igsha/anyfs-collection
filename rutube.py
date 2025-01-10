@@ -38,6 +38,11 @@ class Fetcher:
     def _printjson(path, data):
         Fetcher._printbytes(path, json.dumps(data, ensure_ascii=False, indent=2))
 
+    @staticmethod
+    def _printlink(path, realpath):
+        print("link", path)
+        print(realpath)
+
     def fetch(self, path):
         if path == "/":
             self._printroot()
@@ -48,13 +53,7 @@ class Fetcher:
             elif path.startswith("/shorts"):
                 self._printcommon(self._SHORTSURL.format(pagenum), path)
             elif path.startswith("/playlists"):
-                self._printcommon(self._PLAYLISTURL.format(pagenum), path, isplaylist=True)
-        elif (m := re.match(r"(/playlists(?:/next)*/[^/]+)(/next)*$", path)) and m[1] in self.idmap:
-            info = self.idmap.pop(m[1])
-            playlistid = info["id"]
-            pagenum = path.count("/next", *m.regs[2]) + 1 if len(m.groups()) > 1 else 1
-            initlist = info["initlist"] if pagenum == 1 else []
-            self._printcommon(self._PLAYLISTVIDEOURL.format(playlistid, pagenum), path, init=initlist)
+                self._printcommon(self._PLAYLISTURL.format(pagenum), path)
         else:
             print("notfound", path)
 
@@ -62,7 +61,7 @@ class Fetcher:
         with urlopen(self._PROFILE) as f:
             data = json.load(f)
 
-        for x in ["", "videos", "playlists", "shorts"]:
+        for x in ["", "videos", "playlists", "shorts", "hashes"]:
             self._printentity("/" + x)
 
         self._printbytes(f"/{data['name']}.txt", data["description"])
@@ -78,7 +77,7 @@ class Fetcher:
         self._printbytes(path + "/about.txt", data["description"])
         self._printthumbnail(path, data)
 
-    def _printcommon(self, url, path, isplaylist=False, init=[]):
+    def _printcommon(self, url, path):
         try:
             with urlopen(url) as f:
                 data = json.load(f)
@@ -90,13 +89,12 @@ class Fetcher:
 
         for val in data["results"]:
             title = val["title"].replace("/", ",")
-            ppath = os.path.join(path, title)
+            ppath = "/hashes/" + str(val["id"])
+            self._printlink(os.path.join(path, title), ppath)
             self._printentity(ppath)
-            if isplaylist:
-                playlistid = val["id"]
+            if "videos_count" in val:
                 self._printthumbnail(ppath, val)
-                self._printbytes(ppath + "/playlist.m3u8", f"{self.BASEURL}/plst/{playlistid}/")
-                self.idmap[ppath] = dict(id=playlistid, initlist=["playlist.m3u8"])
+                self._printbytes(ppath + "/playlist.m3u8", f"{self.BASEURL}/plst/{val['id']}/")
             else:
                 self._printvideo(ppath, val)
 
@@ -130,33 +128,31 @@ class Fetcher:
 
 
 if __name__ == "__main__":
-    lst = {23704195: "RuTube", 31303018: "serials", 37213454: "karpavichus",
-           32420212: "animach", 32427511:  "repich", 164395: "antropogenez.ru"}
-    epilog = ", ".join(f"{k} - {v}" for k, v in lst.items())
+    lst = {"RuTube": 23704195, "karpavichus": 37213454, "animach": 32420212, "repich": 32427511, "science": 164395}
+    epilog = ", ".join(f"{k} ({v})" for k, v in lst.items())
     parser = argparse.ArgumentParser(description="Rutube api handler", epilog="Some channels: " + epilog)
     parser.add_argument("userid", help="Id of a rutube user", type=int, nargs='?')
     parser.add_argument("-s", "--slug", help="Connect by user slug")
     parser.add_argument("-u", "--url", help="Connect by user url")
-    parser.add_argument("-c", "--convert", help="Do not connect just find out user id", action="store_true")
+    parser.add_argument("-p", "--print", help="Just print user id", action="store_true")
     args = parser.parse_args()
 
     if args.userid is not None:
         userid = args.userid
-        message = f"User {userid}"
-    if args.slug is not None:
+    elif args.slug is not None:
         userid = Fetcher.extractIdFromSlug(args.slug)
-        message = f"Slug '{args.slug}'"
     elif args.url is not None:
         userid = Fetcher.extractIdFromUrl(args.url)
-        message = args.url
+    else:
+        print("Incorrect usage, see --help", file=sys.stderr)
+        sys.exit(1)
 
-    if args.convert:
+    if args.print:
         if userid is None:
-            print(message, "does not have id")
-            sys.exit(1)
+            print("UserId is not found")
+            sys.exit(2)
         else:
-            print(message, "has id", userid)
-            sys.exit(0)
+            print(userid)
     else:
         fetcher = Fetcher(userid)
         try:
