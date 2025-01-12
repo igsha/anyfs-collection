@@ -51,6 +51,8 @@ class Fetcher:
                 self._printroot()
             elif m := re.match(r"/hashes/(\w{32})/video", path):
                 self._printoptions(path, m[1])
+            elif m := re.match(r"/hashes/(\d+)/videos", path):
+                self._printplaylist(path, m[1])
             elif re.match(r"/[^/]+(/next)*$", path):
                 pagenum = path.count("/next") + 1
                 if path.startswith("/videos"):
@@ -107,7 +109,8 @@ class Fetcher:
             self._printentity(ppath)
             if "videos_count" in val:
                 self._printthumbnail(ppath, val)
-                self._printbytes(ppath + "/playlist.m3u8", f"{self.BASEURL}/plst/{val['id']}/")
+                self._printbytes(ppath + "/playlist.url", f"{self.BASEURL}/plst/{val['id']}/")
+                self._printentity(ppath + "/videos")
             else:
                 self._printvideo(ppath, val)
 
@@ -116,24 +119,24 @@ class Fetcher:
 
         self._printjson(path + "/info.json", data)
 
+    def _printplaylist(self, path, playlistid):
+        self._printcommon(f"{self.BASEURL}/api/playlist/custom/{playlistid}/videos/", path)
+
     @staticmethod
     def extractIdFromUrl(url):
         reg = re.compile(r'"userChannelId":\s*(\d+)')
         try:
             with urlopen(url) as f:
                 for line in f:
-                    m = reg.search(line.decode())
-                    if m is None:
-                        continue
-
-                    return m[1]
+                    if m := reg.search(line.decode()):
+                        return m[1]
+                else:
+                    return None
         except HTTPError as ex:
             if ex.code == 404:
                 return None
             else:
                 raise
-
-        raise RuntimeError("The URL does not contain slug")
 
     @staticmethod
     def extractIdFromSlug(slug):
