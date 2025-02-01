@@ -115,7 +115,7 @@ class Fetcher:
         self._parseResult(path, json.loads(result), pagenum)
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description="Reactor api handler")
     parser.add_argument("tag", help="Tag to extract posts media", nargs="?", default="общее")
     args = parser.parse_args()
@@ -132,3 +132,7 @@ if __name__ == "__main__":
             sys.stdout.flush()
     except KeyboardInterrupt:
         pass
+
+
+if __name__ == "__main__":
+    main()

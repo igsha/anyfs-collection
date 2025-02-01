@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[tool.distutils.bdist_wheel]
+universal = true
+
+[project]
+name = "anyfs-collection"
+version = "0.1.0"
+authors = [
+    {name = "Igor Sharonov"},
+]
+description = "A collection of programs to run in anyfs"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "requests",
+    "m3u8",
+    "graphqlclient",
+]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Linux"
+]
+
+[project.urls]
+Homepage = "https://github.com/igsha/anyfs-collection"
+
+[tool.setuptools.packages.find]
+namespaces = false
+
+[tool.setuptools]
+script-files = [
+    "reactor.py",
+    "rutube.py",
+    "anyfs-wrapper.sh",
+]

@@ -143,7 +143,7 @@ class Fetcher:
         return Fetcher.extractIdFromUrl(f"{Fetcher.BASEURL}/u/{slug}")
 
 
-if __name__ == "__main__":
+def main():
     lst = {"RuTube": 23704195, "karpavichus": 37213454, "animach": 32420212, "repich": 32427511, "science": 164395}
     epilog = ", ".join(f"{k} ({v})" for k, v in lst.items())
     parser = argparse.ArgumentParser(description="Rutube api handler", epilog="Some channels: " + epilog)
@@ -179,3 +179,7 @@ if __name__ == "__main__":
                 sys.stdout.flush()
         except KeyboardInterrupt:
             pass
+
+
+if __name__ == "__main__":
+    main()

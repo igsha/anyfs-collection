@@ -5,7 +5,6 @@ SCRIPTNAME="${BASH_SOURCE[0]##*/}"
 WRAPPERPROG="${SCRIPTNAME#anyfs-}"
 SCRIPTDIR="${BASH_SOURCE[0]%/*}"
 
-export PATH+=:"$SCRIPTDIR" # for local launch
 ANYFSPROG="$(which anyfs)"
 APIHANDLERPROG="$(which "$WRAPPERPROG")"
 

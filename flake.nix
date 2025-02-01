@@ -17,10 +17,8 @@
       default = anyfs-collection;
     };
     devShells.x86_64-linux.default = with pkgs; mkShell {
-      nativeBuildInputs = [
-        (python3.withPackages (pp: with pp; [ m3u8 graphqlclient requests ]))
-        anyfs.packages.${pkgs.system}.anyfs
-      ];
+      inputsFrom = [ self.packages.x86_64-linux.anyfs-collection ];
+      nativeBuildInputs = [ anyfs.packages.${pkgs.system}.anyfs ];
       PYTHONDONTWRITEBYTECODE = 1;
     };
   };
