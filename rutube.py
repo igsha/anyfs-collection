@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import argparse
+import datetime
 import json
 import m3u8
 import os
@@ -23,8 +24,16 @@ class Fetcher:
         self.idmap = {}
 
     @staticmethod
-    def _printbytes(path, buf):
-        print("bytes", len(buf.encode()), path)
+    def _datetots(datets):
+        return int(datetime.datetime.fromisoformat(datets).timestamp())
+
+    @staticmethod
+    def _printbytes(path, buf, ts=None):
+        if ts is None:
+            print("bytes", len(buf.encode()), path)
+        else:
+            print("tbytes", ts, len(buf.encode()), path)
+
         sys.stdout.write(buf)
 
     @staticmethod
@@ -32,17 +41,25 @@ class Fetcher:
         print("entity", path)
 
     @staticmethod
-    def _printurl(path, url):
-        print("url", 0, path)
+    def _printurl(path, url, ts=None):
+        if ts is None:
+            print("url", 0, path)
+        else:
+            print("turl", ts, 0, path)
+
         print(url)
 
     @staticmethod
-    def _printjson(path, data):
-        Fetcher._printbytes(path, json.dumps(data, ensure_ascii=False, indent=2))
+    def _printjson(path, data, ts=None):
+        Fetcher._printbytes(path, json.dumps(data, ensure_ascii=False, indent=2), ts)
 
     @staticmethod
-    def _printlink(path, realpath):
-        print("link", path)
+    def _printlink(path, realpath, ts=None):
+        if ts is None:
+            print("link", path)
+        else:
+            print("tlink", ts, path)
+
         print(realpath)
 
     def fetch(self, path):
@@ -76,24 +93,28 @@ class Fetcher:
         for x in ["", "videos", "playlists", "shorts", "hashes"]:
             self._printentity("/" + x)
 
-        self._printbytes(f"/{data['name']}.txt", data["description"])
-        self._printjson("/info.json", data)
+        ts = self._datetots(data["date_joined"])
+        self._printbytes(f"/{data['name']}.txt", data["description"], ts)
+        self._printjson("/info.json", data, ts)
 
-    def _printthumbnail(self, path, data):
+    def _printthumbnail(self, path, data, ts=None):
         thumbnail_url = data["thumbnail_url"]
         name = "thumbnail." + thumbnail_url.split(".")[-1]
-        self._printurl(os.path.join(path, name), thumbnail_url)
+        self._printurl(os.path.join(path, name), thumbnail_url, ts)
 
     def _printvideo(self, path, data):
-        self._printbytes(path + "/video.url", data["video_url"])
-        self._printbytes(path + "/about.txt", data["description"])
-        self._printthumbnail(path, data)
-        self._printentity(path + "/video")
+        pubts = self._datetots(data["publication_ts"])
+        self._printbytes(path + "/video.m3u8", data["video_url"], pubts)
+        self._printbytes(path + "/about.txt", data["description"], pubts)
+        self._printthumbnail(path, data, pubts)
+        #self._printentity(path + "/video")
 
     def _printoptions(self, path, videoid):
         with urlopen(self._PLAYOPTIONS.format(videoid)) as f:
             data = json.load(f)
 
+        self._printjson(path + "/info.json", data)
+        self._printbytes(path + "/video1.m3u8", data["video_balancer"]["m3u8"])
         mplay = m3u8.load(data["video_balancer"]["m3u8"])
         for name, url in {str(p.stream_info): p.absolute_uri for p in mplay.playlists}.items():
             self._printbytes(f"{path}/{name}.m3u8", url)
@@ -105,11 +126,16 @@ class Fetcher:
         for val in data["results"]:
             title = val["title"].replace("/", ",")
             ppath = "/hashes/" + str(val["id"])
-            self._printlink(os.path.join(path, title), ppath)
+            if "publication_ts" in val:
+                ts = self._datetots(val["publication_ts"])
+            else:
+                ts = self._datetots(val["created_ts"])
+
+            self._printlink(os.path.join(path, title), ppath, ts)
             self._printentity(ppath)
             if "videos_count" in val:
                 self._printthumbnail(ppath, val)
-                self._printbytes(ppath + "/playlist.url", f"{self.BASEURL}/plst/{val['id']}/")
+                self._printbytes(ppath + "/playlist.m3u8", f"{self.BASEURL}/plst/{val['id']}/")
                 self._printentity(ppath + "/videos")
             else:
                 self._printvideo(ppath, val)
