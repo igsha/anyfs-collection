@@ -2,6 +2,7 @@
 
 let
   toml = builtins.fromTOML (builtins.readFile ./pyproject.toml);
+
 in python3Packages.buildPythonApplication {
   pname = toml.project.name;
   version = toml.project.version;

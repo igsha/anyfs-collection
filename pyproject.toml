@@ -18,6 +18,8 @@ dependencies = [
     "requests",
     "m3u8",
     "graphqlclient",
+    "beautifulsoup4",
+    "lxml",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -35,5 +37,7 @@ namespaces = false
 script-files = [
     "reactor.py",
     "rutube.py",
+    "kodik.py",
+    "kodik-search.sh",
     "anyfs-wrapper.sh",
 ]
