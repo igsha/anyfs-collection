@@ -20,7 +20,6 @@ class Fetcher:
         self._PROFILE = f"{self.BASEURL}/api/profile/user/{userid}/"
         self._PLAYLISTVIDEOURL = f"{self.BASEURL}/api/playlist/custom/{{}}/videos/?page={{}}"
         self._PLAYOPTIONS = f"{self.BASEURL}/api/play/options/{{}}/"
-        self.idmap = {}
 
     @staticmethod
     def _datetots(datets):
@@ -28,23 +27,30 @@ class Fetcher:
 
     @staticmethod
     def _printbytes(path, buf, ts=None):
-        if ts is None:
-            print("bytes", len(buf.encode()), path)
-        else:
-            print("tbytes", ts, len(buf.encode()), path)
+        args = ["bytes"]
+        if ts is not None:
+            args.append(f"time={ts}")
 
+        args.append(f"size={len(buf.encode())}")
+        args.append(f"path={path}")
+        print(*args)
         sys.stdout.write(buf)
 
     @staticmethod
-    def _printentity(path, ts=None):
-        if ts is None:
-            print("entity", path)
-        else:
-            print("tentity", ts, path)
+    def _printentity(path, ts=None, ishidden=False):
+        args = ["entity"]
+        if ts is not None:
+            args.append(f"time={ts}")
+
+        if ishidden:
+            args.append("hide=true")
+
+        args.append(f"path={path}")
+        print(*args)
 
     @staticmethod
     def _printurl(path, url, ts):
-        print("turl", ts, 0, path)
+        print("url time=", ts, " path=", path, sep="")
         print(url)
 
     @staticmethod
@@ -53,16 +59,16 @@ class Fetcher:
 
     @staticmethod
     def _printlink(path, realpath, ts):
-        print("tlink", ts, path)
+        print("link time=", ts, " path=", path, sep="")
         print(realpath)
 
     def fetch(self, path):
         try:
             if path == "/":
                 self._printroot()
-            elif m := re.match(r"/\.hashes/(\w{32})/(video\.m3u8|\.info\.json)", path):
+            elif m := re.match(r"/hashes/(\w{32})/(video\.m3u8|\.info\.json)", path):
                 self._printoptions(os.path.dirname(path), m[1])
-            elif m := re.match(r"/\.hashes/(\d+)/videos", path):
+            elif m := re.match(r"/hashes/(\d+)/videos", path):
                 self._printplaylist(path, m[1])
             elif re.match(r"/[^/]+(/next)*$", path):
                 pagenum = path.count("/next") + 1
@@ -73,10 +79,10 @@ class Fetcher:
                 elif path.startswith("/playlists"):
                     self._printcommon(self._PLAYLISTURL.format(pagenum), path)
             else:
-                print("notfound", path)
+                print("notfound path=", path, sep="")
         except HTTPError as ex:
             if ex.code == 404:
-                print("notfound", path)
+                print("notfound path=", path, sep="")
             else:
                 raise
 
@@ -85,9 +91,10 @@ class Fetcher:
             data = json.load(f)
 
         ts = self._datetots(data["date_joined"])
-        for x in ["", "videos", "playlists", "shorts", ".hashes"]:
+        for x in ["", "videos", "playlists", "shorts"]:
             self._printentity("/" + x, ts)
 
+        self._printentity("/hashes", ts, True)
         self._printbytes(f"/{data['name']}.txt", data["description"], ts)
         self._printjson("/.info.json", data, ts)
 
@@ -117,7 +124,7 @@ class Fetcher:
 
         for val in data["results"]:
             title = val["title"].replace("/", ",")
-            ppath = "/.hashes/" + str(val["id"])
+            ppath = "/hashes/" + str(val["id"])
             if "publication_ts" in val:
                 ts = self._datetots(val["publication_ts"])
             else:

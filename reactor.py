@@ -49,19 +49,23 @@ class Fetcher:
 
     @staticmethod
     def _printbytes(path, buf):
-        print("bytes", len(buf.encode()), path)
+        print("bytes size=", len(buf.encode()), " path=", path, sep="")
         sys.stdout.write(buf)
 
     @staticmethod
     def _printentity(path):
-        print("entity", path)
+        print("entity path=", path, sep="")
 
     @staticmethod
     def _printurl(path, url, headers=[]):
-        print("url", len(headers), path)
+        print("url headers=", len(headers), " path=", path, sep="")
         print(url)
         for h in headers:
             print(h)
+
+    @staticmethod
+    def _printjson(path, data):
+        Fetcher._printbytes(path, json.dumps(data, ensure_ascii=False, indent=2))
 
     @staticmethod
     def _decodeId(x):
@@ -96,8 +100,10 @@ class Fetcher:
                     name = f"{prefix}-{imageId}.youtube.m3u8"
                     self._printbytes(f"{postPath}/{name}", url)
                 else:
-                    print("ioerror", f"{postPath}/{imageId}.{postId}.err")
+                    print("ioerror", f"path={postPath}/{imageId}.{postId}.err")
                     print("FAIL", postId, attr, file=sys.stderr)
+
+            self._printjson(postPath + "/info.json", post)
 
         if self.startPage is None:
             self.startPage = (int(postPager['count']) + 9) // 10
@@ -108,11 +114,12 @@ class Fetcher:
     def fetch(self, path):
         pagenum = path.count("/next")
         if (pagenum > 0 and self.startPage is None) or (self.startPage is not None and pagenum >= self.startPage):
-            print("notfound", path)
+            print("notfound path=", path, sep="")
 
         params = "" if pagenum == 0 else f"(page: {self.startPage - pagenum})"
         result = self.client.execute(self.template.substitute(tag=self.tag, params=params))
         self._parseResult(path, json.loads(result), pagenum)
+        print("eom")
 
 
 def main():
@@ -128,7 +135,6 @@ def main():
                 path = path.rstrip("/")
 
             fetcher.fetch(path)
-            print("eom")
             sys.stdout.flush()
     except KeyboardInterrupt:
         pass
