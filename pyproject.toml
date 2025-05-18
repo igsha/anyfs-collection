@@ -20,6 +20,7 @@ dependencies = [
     "graphqlclient",
     "beautifulsoup4",
     "lxml",
+    "pillow",
 ]
 classifiers = [
     "Programming Language :: Python :: 3",
